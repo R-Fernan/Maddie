@@ -12,5 +12,11 @@ This folder contains the overall progress on M.A.D.D.I.E (My Advanced Droid Devi
 * Rough idea of the bot's physical structure
 * Furnishing of the overall purpose 
 
+## 16 June 2026
 
-
+* Relocated her usage operation from the CMD into a web UI sandbox
+* Coded a dynamic frontend interface using the Streamlit framework
+* Configured local networking requests to communicate directly with Ollama's local engine
+* Set up a persistent memory system via Python session states so that she keeps chat context during live sessions
+* Formatted JSON data processing streams to allow smooth, character-by-character text typing animations
+* Successfully linked her web application backend directly to her compiled custom model parameters (maddie:latest)
