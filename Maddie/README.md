@@ -3,7 +3,7 @@
 This folder contains the overall progress on M.A.D.D.I.E (My Advanced Droid Device In Existence). I'm officially committing my future of my research and time in making this bot, not just one of my project but as one of my dreams (to make a robot assistant)
 
 # NOTES
-1. Relocation to official production will only occur once all core deployment criteria are met: (1. TTS Integration, 2. JARVIS-inspired UI, 3. Refined & Enhanced Persona)
+1. Relocation to official production will only occur once all core deployment criterias are met: (1. TTS Integration, 2. JARVIS-inspired UI, 3. Refined & Enhanced Persona)
 
 # My Progress
 
