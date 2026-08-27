@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import axios from 'axios';
-import { Cpu, HardDrive, Activity, Send, Terminal, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Cpu, HardDrive, Activity, Send, Terminal, PanelLeftClose, PanelLeftOpen, Volume2, VolumeX } from 'lucide-react';
 import { SYSTEM_CONFIG } from './config/speechConfig';
 
 const API_BASE_URL = `http://${window.location.hostname || 'localhost'}:5000`;
@@ -31,6 +31,7 @@ export default function App() {
     ramTotalGB: '0',
   });
   const [heartbeat, setHeartbeat] = useState('-------');
+  const [isSpeechEnabled, setIsSpeechEnabled] = useState(SYSTEM_CONFIG.tts.enabled);
 
   const [availableSystemVoices, setAvailableSystemVoices] = useState<SpeechSynthesisVoice[]>([]);
 
@@ -82,17 +83,22 @@ export default function App() {
     };
   }, []);
 
-  const speak = (text: string) => {
-    if (!SYSTEM_CONFIG.tts.enabled || !('speechSynthesis' in window)) return;
-
-    window.speechSynthesis.cancel();
-
-    // Strip Markdown syntax so it isn't spoken aloud
-    const cleanText = text
+  const prepareSpeechText = (text: string) => {
+    return text
+      .replace(/M\.A\.D\.D\.I\.E\.?/gi, 'Maddie')
       .replace(/```[\s\S]*?```/g, '')
       .replace(/`([^`]+)`/g, '$1')
       .replace(/[*_~#]/g, '')
+      .replace(/[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}\uFE0F\u200D]/gu, '')
       .trim();
+  };
+
+  const speak = (text: string) => {
+    if (!isSpeechEnabled || !('speechSynthesis' in window)) return;
+
+    window.speechSynthesis.cancel();
+
+    const cleanText = prepareSpeechText(text);
 
     if (!cleanText) return;
 
@@ -188,9 +194,7 @@ export default function App() {
         });
       }
 
-      if (assistantResponse) {
-        speak(assistantResponse);
-      }
+      if (assistantResponse) speak(assistantResponse);
     } catch (error) {
       const detail = error instanceof Error ? error.message : 'Unknown chat error';
       setMessages(prev => [
@@ -219,6 +223,22 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <Terminal className="w-5 h-5 text-white" />
                 <span className="font-bold text-white tracking-wider">M.A.D.D.I.E.</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSpeechEnabled(enabled => {
+                      if (enabled && 'speechSynthesis' in window) {
+                        window.speechSynthesis.cancel();
+                      }
+                      return !enabled;
+                    });
+                  }}
+                  className="text-gray-400 hover:text-white transition-colors"
+                  title={isSpeechEnabled ? 'Disable speech' : 'Enable speech'}
+                  aria-label={isSpeechEnabled ? 'Disable speech' : 'Enable speech'}
+                >
+                  {isSpeechEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </button>
               </div>
             ) : (
               <button onClick={() => setIsSidebarOpen(true)} title="Expand Panel" className="text-white hover:text-silver">
