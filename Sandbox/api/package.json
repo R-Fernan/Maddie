@@ -4,10 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-  	"dev": "tsx watch src/server.ts",
-  	"build": "tsc",
-  	"start": "node dist/server.js"
-	},
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "tsx dist/index.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -16,6 +16,7 @@
     "axios": "^1.19.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
+    "edge-tts": "^1.0.1",
     "express": "^5.2.1",
     "socket.io": "^4.8.3",
     "systeminformation": "^5.33.1"

@@ -2,12 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import axios from 'axios';
 import { Cpu, HardDrive, Activity, Send, Terminal, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { SYSTEM_CONFIG } from './config/speechConfig';
 
-// Dynamic host resolution for both localhost and mobile access
-const HOST_IP = window.location.hostname;
-const API_BASE_URL = `http://${HOST_IP}:5000`;
-
-const socket = io(API_BASE_URL);
+const API_BASE_URL = `http://${window.location.hostname || 'localhost'}:5000`;
 
 interface Message {
   role: 'user' | 'assistant';
@@ -33,6 +30,9 @@ export default function App() {
     ramUsedGB: '0',
     ramTotalGB: '0',
   });
+  const [heartbeat, setHeartbeat] = useState('-------');
+
+  const [availableSystemVoices, setAvailableSystemVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -40,7 +40,30 @@ export default function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Load browser speech synthesis voices in background
   useEffect(() => {
+    const loadVoices = () => {
+      if ('speechSynthesis' in window) {
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          setAvailableSystemVoices(voices);
+        }
+      }
+    };
+
+    loadVoices();
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
+
+  // Socket.IO and Engine Status Lifecycle
+  useEffect(() => {
+    const socket = io(API_BASE_URL, {
+      transports: ['websocket', 'polling'],
+      autoConnect: true,
+    });
+
     axios.get(`${API_BASE_URL}/api/status`)
       .then(res => setEngineStatus(res.data.status))
       .catch(() => setEngineStatus('OFFLINE'));
@@ -48,11 +71,52 @@ export default function App() {
     socket.on('telemetry', (data: TelemetryData) => {
       setTelemetry(data);
     });
+    socket.on('heartbeat', (value: string) => {
+      setHeartbeat(value);
+    });
 
     return () => {
       socket.off('telemetry');
+      socket.off('heartbeat');
+      socket.disconnect();
     };
   }, []);
+
+  const speak = (text: string) => {
+    if (!SYSTEM_CONFIG.tts.enabled || !('speechSynthesis' in window)) return;
+
+    window.speechSynthesis.cancel();
+
+    // Strip Markdown syntax so it isn't spoken aloud
+    const cleanText = text
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/[*_~#]/g, '')
+      .trim();
+
+    if (!cleanText) return;
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+
+    const voices = availableSystemVoices.length > 0 
+      ? availableSystemVoices 
+      : window.speechSynthesis.getVoices();
+
+    const matchedVoice = voices.find((v) => v.name === SYSTEM_CONFIG.tts.defaultVoiceKey) ||
+      voices.find((v) => v.name.toLowerCase().includes('google') && v.lang.replace('_', '-').includes('en-US')) ||
+      voices.find((v) => v.lang.replace('_', '-').startsWith('en-US')) ||
+      voices[0];
+
+    if (matchedVoice) {
+      utterance.voice = matchedVoice;
+    }
+
+    utterance.rate = SYSTEM_CONFIG.tts.rate;
+    utterance.pitch = SYSTEM_CONFIG.tts.pitch;
+    utterance.volume = SYSTEM_CONFIG.tts.volume;
+
+    window.speechSynthesis.speak(utterance);
+  };
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -65,22 +129,25 @@ export default function App() {
     setInputPrompt('');
     setIsGenerating(true);
 
+    let assistantResponse = '';
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'maddie:latest',
+          model: SYSTEM_CONFIG.api.defaultModel,
           messages: updatedMessages,
           stream: true,
         }),
       });
 
+      if (!response.ok) throw new Error(`Chat request failed with status ${response.status}`);
       if (!response.body) throw new Error('No readable stream');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let assistantResponse = '';
+      let pendingLine = '';
 
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
@@ -89,7 +156,8 @@ export default function App() {
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+        const lines = `${pendingLine}${chunk}`.split('\n');
+        pendingLine = lines.pop() || '';
 
         for (const line of lines) {
           if (line.trim()) {
@@ -103,14 +171,32 @@ export default function App() {
                 next[next.length - 1] = { role: 'assistant', content: assistantResponse };
                 return next;
               });
-            } catch (err) {
-              // Ignore boundary JSON chunks
+            } catch {
+              // Ignore partial stream chunks
             }
           }
         }
       }
-    } catch (err) {
-      setMessages(prev => [...prev, { role: 'assistant', content: '[ERROR]: Failed to stream token output.' }]);
+
+      if (pendingLine.trim()) {
+        const parsed = JSON.parse(pendingLine);
+        assistantResponse += parsed.message?.content || '';
+        setMessages(prev => {
+          const next = [...prev];
+          next[next.length - 1] = { role: 'assistant', content: assistantResponse };
+          return next;
+        });
+      }
+
+      if (assistantResponse) {
+        speak(assistantResponse);
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'Unknown chat error';
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: `[ERROR]: ${detail}` },
+      ]);
     } finally {
       setIsGenerating(false);
     }
@@ -153,7 +239,7 @@ export default function App() {
 
           {/* Expanded Telemetry Information */}
           {isSidebarOpen && (
-            <div className="space-y-5">
+            <div className="space-y-4">
               <div>
                 <span className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1 font-mono">Engine Status</span>
                 <div className={`flex items-center gap-2 px-3 py-1.5 rounded border text-xs font-mono font-semibold ${
@@ -164,8 +250,12 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="space-y-3 font-mono">
-                <span className="text-[10px] text-gray-400 uppercase tracking-widest block">System Diagnostics</span>
+              {/* Usage Stats */}
+              <div className="space-y-2.5 font-mono">
+                <div className="flex items-center justify-between gap-3 text-[10px] uppercase tracking-widest">
+                  <span className="text-gray-400">Host System Diagnostics</span>
+                  <span className="text-emerald-400/80 tracking-wider" aria-label="System heartbeat">{heartbeat}</span>
+                </div>
 
                 <div className="bg-slate/40 border border-frost p-2.5 rounded">
                   <div className="flex justify-between text-xs mb-1">
@@ -188,6 +278,7 @@ export default function App() {
                   <span className="text-[10px] text-gray-500 mt-1 block text-right">{telemetry.ramUsedGB} / {telemetry.ramTotalGB} GB</span>
                 </div>
               </div>
+
             </div>
           )}
         </div>
@@ -206,7 +297,7 @@ export default function App() {
         {/* Footer Info */}
         {isSidebarOpen && (
           <div className="hidden md:block text-[10px] font-mono border-t border-frost pt-3 text-gray-500 space-y-0.5">
-            <div>MODEL: maddie:latest</div>
+            <div>MODEL: {SYSTEM_CONFIG.api.defaultModel}</div>
             <div>BASE : Gemma 2 (2B)</div>
           </div>
         )}
