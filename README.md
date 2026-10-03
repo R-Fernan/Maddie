@@ -3,9 +3,29 @@
 
 # Preview
 
-This project represents a long-term commitment toward building a fully functional, autonomous AI robot assistant named **M.A.D.D.I.E.** `(A.K.A. My Advanced Droid Device In Existence).` (Maybe 5 to 10 years LOL).
+This project represents a long-term commitment toward building a fully functional, autonomous AI robot assistant named **M.A.D.D.I.E.** `(A.K.A. My Advanced Droid Device In Existence).`
 
-This repository tracks the development and overall progress of the AI-Assistant
+This repository tracks the development and overall progress of the AI-Assistant, built as a private personal companion for Remuel B. Fernan, with her identity, voice, and behavior anchored directly in a local Ollama model.
+
+---
+
+# Current Build Status
+
+The project is now running as a local AI assistant stack with:
+1. **Custom model identity layer** using a local `Modelfile`
+2. **Persona examples** stored in `data/persona-examples.json`
+3. **Live backend API** in `/api` for status checks and streaming chat
+4. **Frontend HUD** in `/hud` for chat + telemetry visualization
+5. **Ollama model rebuild pipeline** via `npm run model:build`
+
+To rebuild the custom Maddie model:
+
+```bash
+cd api
+npm run model:build
+```
+
+This executes the project script which reads the base `Modelfile`, combines it with selected persona examples, and creates the custom model target `maddie:latest` in Ollama.
 
 ---
 
@@ -15,15 +35,24 @@ Relocation to the official production environment will occur once all core deplo
 1. **TTS / Voice Integration** (Text-to-Speech execution)
 2. **JARVIS-like UI / Telemetry HUD** (Real-time system diagnostics & chat workspace)
 3. **Refined & Enhanced Persona** (Custom fine-tuning and system prompt alignment)
+4. **Memory / Persistence Layer** (Private personal memory and preference retention)
+5. **Long-term Continuity** (Stable identity, context, and personal workflow retention)
 
+---
 
 # Additional Notes
 
-Plans to take this project beyond just software are currently in motion. Once a solid chunk of the core criteria above is ticked off, I'll start integrating physical, humanoid body parts to bring her into the real world. (Stay tuned!)
+Plans to take this project beyond just software are currently in motion. Once a solid chunk of the core criteria above is ticked off, the next evolution is integrating physical, humanoid body parts to bring her into the real world. For now, the software layer is being refined to behave like a private personal companion instead of a generic AI assistant.
 
 ---
 
 # Development Progress
+
+## 03 October 2026
+* **Identity Hardening**: Clarified the custom persona so Maddie answers as a personal companion created by Sir, not as a generic assistant.
+* **Model Rebuild Pipeline**: Verified the project rebuild path using `npm run model:build` and confirmed the custom model is generated with `maddie:latest`.
+* **Persona Example Refinement**: Updated the example dataset so identity responses default to personal phrasing like "You, Sir" while deeper creator questions still reveal the formal origin.
+* **Voice-first compatibility**: Kept the assistant language tuned for spoken interaction with concise, natural phrasing and no markdown-heavy output.
 
 ## 24 August 2026
 * **Architecture Upgrade**: Migrated the sandbox interface from Streamlit to a fucking full-stack, real-time Node.js + React architecture.
