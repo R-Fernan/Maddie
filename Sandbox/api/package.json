@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "tsx dist/index.js"
+    "start": "tsx dist/index.js",
+    "model:build": "node ../scripts/build-persona-model.mjs"
   },
   "keywords": [],
   "author": "",

@@ -3,6 +3,7 @@ import cors from 'cors';
 import crypto from 'crypto';
 import express, { Request, Response } from 'express';
 import http from 'http';
+import { Transform } from 'stream';
 import { Server } from 'socket.io';
 import si from 'systeminformation';
 import { tts } from 'edge-tts';
@@ -84,7 +85,23 @@ app.post('/api/chat', async (req: Request, res: Response) => {
     });
 
     res.setHeader('Content-Type', 'application/x-ndjson');
-    response.data.pipe(res);
+    let pendingText = '';
+    const blockedJoke = /Why don't scientists trust atoms\?\s*Because they make up everything!?/gi;
+    const replacement = 'I will skip that stock joke, Sir. Please ask me for a fresh one.';
+    const filter = new Transform({
+      transform(chunk: Buffer, _encoding, callback) {
+        pendingText += chunk.toString('utf8');
+        const safeLength = Math.max(0, pendingText.length - 96);
+        const safeText = pendingText.slice(0, safeLength).replace(blockedJoke, replacement);
+        pendingText = pendingText.slice(safeLength);
+        callback(null, safeText);
+      },
+      flush(callback) {
+        callback(null, pendingText.replace(blockedJoke, replacement));
+      },
+    });
+
+    response.data.pipe(filter).pipe(res);
   } catch (error) {
     console.error('[Ollama Chat Error]:', error);
     res.status(502).json({ error: 'Failed to communicate with Ollama' });

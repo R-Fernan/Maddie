@@ -1,0 +1,5 @@
+.generated.Modelfile
+api/dist/
+api/node_modules/
+hud/dist/
+hud/node_modules/
